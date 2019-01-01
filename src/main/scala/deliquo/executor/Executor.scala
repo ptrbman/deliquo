@@ -31,6 +31,11 @@ abstract class Executor {
     import java.util.Calendar
 
     val dateString = new SimpleDateFormat("MMdd-hhmm").format(Calendar.getInstance.getTime)
+
+    File directory = new File("logs/");
+    if (!directory.exists())
+      directory.mkdir();
+
     val outFileName = "logs/" + toolName + "-" + dateString + ".out"
     println("Writing to: \"" + outFileName + "\"")
     val pw = new PrintWriter(new File(outFileName))
