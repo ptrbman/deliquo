@@ -32,7 +32,7 @@ abstract class Executor {
 
     val dateString = new SimpleDateFormat("MMdd-hhmm").format(Calendar.getInstance.getTime)
 
-    File directory = new File("logs/");
+    val directory = new File("logs/");
     if (!directory.exists())
       directory.mkdir();
 
@@ -43,10 +43,10 @@ abstract class Executor {
     pw.write(List(toolName, timeout, dateString).mkString(",") + "\n")
     val resultMap = 
       for (f <- files) yield {
-        println("\t" + f)
+        println("\t" + f.getAbsolutePath)
 
         val START_TIME = System.currentTimeMillis
-        val (exitVal, stdout, stderr) = runCommand(toolCommand :: (options ++ List(f.toString)), timeout)
+        val (exitVal, stdout, stderr) = runCommand(toolCommand :: (options ++ List(f.getAbsolutePath)), timeout)
         val END_TIME = System.currentTimeMillis
 
         val time = END_TIME - START_TIME

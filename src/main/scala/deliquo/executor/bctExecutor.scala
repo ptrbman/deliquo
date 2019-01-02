@@ -2,13 +2,10 @@ package deliquo
 
 object bctExecutor extends Executor {
   val toolName = "BCT"
-  val toolCommand = "scala"
-  override val options = List("/home/ptr/Projects/bct/bin/bct.jar", "file")
+  val toolCommand = "java"
+  override val options = List("-jar", "/home/peter/bin/bct.jar", "file")
 
   def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String], time : Long) = {
-    if (stdout.exists(_ contains "Incomplete search")) {
-      Unknown(time)
-    } else {
 
       for (l <- stdout)
         println("STDOUT: " + l)
@@ -17,6 +14,12 @@ object bctExecutor extends Executor {
         println("STDERR: " + l)
 
       println("RETVAL: " + retVal)
+
+    if (stdout.exists(_ contains "Incomplete search")) {
+      Unknown(time)
+    } else if (stdout.exists(_ contains "Timeout")) {
+      Timeout(time)
+    } else {
       throw new Exception("Unhandled bct result")
     }
   }
