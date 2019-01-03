@@ -116,12 +116,9 @@ object Deliquo {
     Console.println(footer)
   }
 
-  def parse(args : Array[String]) = {
+  def logs() = {
     val fileNames = 
-    args(0) match {
-      case "FILES" => args.tail.toList
-      case "DIR" => (new File(args(1))).listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList
-    }
+      new File("logs/").listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList.sorted
 
     println("Inputs:")
     val files =
@@ -131,40 +128,53 @@ object Deliquo {
       }
 
     val results : Results = files.map(parseCSV(_)).toList
-
     printResult(results)
   }
 
 
   def run(args : Array[String]) = {
-    if (args.isEmpty) {
-      println("Usage:")
-      println("\tRUN solver input-directory timeout")
+    val executors = Executor.fromXML("tools.xml")
+    if (args.length < 3) {
+      printHelp("run")
     } else {
       val execs = 
         args(0) match {
-          case "leancop" => List(leanCoPExecutor)
-          case "bct" => List(bctExecutor)
-          case "all" => List(leanCoPExecutor, bctExecutor)
+          case "all" => executors.values
+          case solver => List(executors(solver))
         }
 
       val inputDir = args(1)
       val timeout = args(2).toInt
       for (ex <- execs)
-        ex.run(inputDir, timeout)
+        ex.runAllConfigs(inputDir, timeout)
+        // ex.run(inputDir, timeout)
     }
   }
 
 
+  def printHelp(cat : String = "") = {
+    cat match {
+      case "" => {
+        println("Usage")
+        println("\tLOGS")
+        println("\tRUN")
+      }
+
+      case "run" => {
+        Console.println(s"Usage: ${YELLOW}run ${RESET}solver input-directory timeout(s)")
+      }
+    }
+  }
+
   def main(args : Array[String]) = {
+
     if (args.isEmpty) {
-      println("Usage")
-      println("\tPARSE")
-      println("\tRUN")
+      printHelp()
     } else {
       args(0) match {
-        case "PARSE" => parse(args.tail)
-        case "RUN" => run(args.tail)
+        case "logs" => logs()
+        case "run" => run(args.tail)
+        case _ => printHelp()
       }
     }
     Console.println(s"${RESET}${GREEN}Goodbye!${RESET}")

@@ -1,0 +1,39 @@
+<solvers>
+  <solver>
+    <toolName>leanCoP</toolName>
+    <toolCommand>/home/ptr/Downloads/leancop21/leancop.sh</toolCommand>
+    <options>
+    </options>
+    <parser>
+      <theorem>is a Theorem</theorem>
+      <invalid></invalid>
+      <unknown></unknown>
+      <timeout></timeout>
+      <error></error>      
+    </parser>
+  </solver>
+  <solver>
+    <toolName>bct</toolName>
+    <toolCommand>java</toolCommand>
+    <options>
+      <option>-jar</option>
+      <option>/home/ptr/Projects/bct/bin/bct.jar</option>
+    </options>
+    <parser>
+      <theorem></theorem>
+      <invalid></invalid>
+      <unknown>Incomplete search</unknown>
+      <timeout></timeout>
+      <error>ERROR</error>      
+    </parser>
+    <parameters>
+      <parameter>
+	<name>regularity</name>
+	<commands>
+	  <command>+regularity</command>
+	  <command>-regularity</command>
+	</commands>
+      </parameter>
+    </parameters>
+  </solver>
+</solvers>
