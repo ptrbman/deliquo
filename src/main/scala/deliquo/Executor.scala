@@ -25,13 +25,23 @@ object Executor {
           (px \ "error").text,
           (px \ "timeout").text)
 
+      val specials_ = 
+        (for (sp <- xml_ \ "parser" \ "specials" \ "special") yield {
+          println("SP: " + sp)
+          val name = (sp \ "name").text
+          val regex = (sp \ "regex").text.r
+          name -> regex
+        }).toMap
+
+      override val specials = specials_.keys.toList
+
       override val options = (xml_ \ "options" \ "option").map(_.text).toList
 
       override def parseOutput(
         retVal : Int,
         stdout : Array[String],
         stderr : Array[String],
-        time : Long) : Result = {
+        time : Long) : Instance = {
 
         for (l <- stdout)
           println("STDOUT: " + l)
@@ -41,24 +51,43 @@ object Executor {
 
         println("RETVAL: " + retVal)
 
-        if (theoremStr != "" && stdout.exists(_ contains theoremStr)) {
-          Theorem(time)
-        } else if (invalidStr != "" && stdout.exists(_ contains invalidStr)) {
-          Invalid(time)
-        } else if (unknownStr != "" && stdout.exists(_ contains unknownStr)) {          
-          Unknown(time)
-        } else if (errorStr != "" && stdout.exists(_ contains errorStr)) {          
-          Error(time)
-        } else if (timeoutStr != "" && stdout.exists(_ contains timeoutStr)) {  
-          Timeout(time)          
-        } else {
-          for (l <- stdout)
-            println("STDOUT: " + l)
-          for (l <- stderr)
-            println("STDERR: " + l)
-          println("RETVAL: " + retVal)
-          throw new Exception("Unhandled " + name + " result")
+        import scala.collection.mutable.{Map => MMap}
+        val extraData = MMap() : MMap[String, String]
+        for (l <- stdout) {
+          for ((name, regex) <- specials_) {
+            val m = regex.findFirstMatchIn(l)
+            if (m.isDefined)
+              extraData += name -> m.get.group(1)
+          }
         }
+
+        println("SPECIAL OUTS")
+        println(extraData.mkString("\n"))
+        
+
+        val result = 
+          if (retVal == 124) {
+            Timeout(time)
+          } else if (theoremStr != "" && stdout.exists(_ contains theoremStr)) {
+            Theorem(time)
+          } else if (invalidStr != "" && stdout.exists(_ contains invalidStr)) {
+            Invalid(time)
+          } else if (unknownStr != "" && stdout.exists(_ contains unknownStr)) {
+            Unknown(time)
+          } else if (errorStr != "" && stdout.exists(_ contains errorStr)) {
+            Error(time)
+          } else if (timeoutStr != "" && stdout.exists(_ contains timeoutStr)) {
+            Timeout(time)
+          } else {
+            for (l <- stdout)
+              println("STDOUT: " + l)
+            for (l <- stderr)
+              println("STDERR: " + l)
+            println("RETVAL: " + retVal)
+            throw new Exception("Unhandled " + name + " result")
+          }
+
+        Instance(toolName, result, extraData.toMap)
       }
     })
   }
@@ -76,8 +105,9 @@ abstract class Executor {
   val toolName : String
   val toolCommand : String
   val options : List[String] = List()
+  val specials : List[String]
   val xml = None : Option[scala.xml.Node]
-  def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String], time : Long) : Result
+  def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String], time : Long) : Instance
 
   def runCommand(cmd: Seq[String], timeout : Int): (Int, Array[String], Array[String]) = {
     val stdoutStream = new ByteArrayOutputStream
@@ -111,6 +141,7 @@ abstract class Executor {
     val pw = new PrintWriter(new File(outFileName))
 
     pw.write(List(toolName+tag, timeout, dateString).mkString(",") + "\n")
+    pw.write((List("benchmark","result") ++ specials).mkString(",") + "\n")
     val resultMap = 
       for (f <- files) yield {
         println("\t" + f)
@@ -121,13 +152,8 @@ abstract class Executor {
         val END_TIME = System.currentTimeMillis
 
         val time = END_TIME - START_TIME
-        val result =
-          if (exitVal == 124) {
-            Timeout(time)
-          } else {
-            parseOutput(exitVal, stdout, stderr, time)
-          }
-        val line = List(f.getName, result).mkString(",") + "\n"
+        val Instance(toolName, result, extraData) = parseOutput(exitVal, stdout, stderr, time)
+        val line = (List(f.getName, result) ++ specials.map(extraData.getOrElse(_, "n/a"))).mkString(",") + "\n"
         pw.write(line)
         f.getName -> result
       }

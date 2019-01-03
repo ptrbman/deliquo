@@ -2,45 +2,60 @@ package deliquo
 
 import Console.{GREEN, RED, RESET, YELLOW, UNDERLINED}
 import java.io.File
+import scala.collection.mutable.{Set => MSet}
 
 object Deliquo {
 
   type Benchmark = String
-  type ToolResult = Map[Benchmark, Result]
+  type ToolResult = Map[Benchmark, (Result , Map[String, String])]
   type ToolName = (String, String)
   type Results = List[(ToolName, ToolResult)]
 
-  def parseCSV(fileName : String) : (ToolName, ToolResult) = {
+  def parseCSV(fileName : String) : (ToolName, ToolResult, List[String]) = {
     val lines = scala.io.Source.fromFile(fileName).getLines.toList
     val headerR = "(.*),(.*),(.*)".r
     val (tool, timeout, datestring) =
-      lines.head match {
+      lines(0) match {
         case headerR(a, b, c) => (a, b.toInt, c)
       }
 
-    val thmR = "(.*),Theorem\\((\\d+)\\)".r
-    val unkR = "(.*),Unknown\\((.*)\\)".r
-    val toR = "(.*),Timeout\\((.*)\\)".r
-    val erR = "(.*),Error\\((.*)\\)".r            
+    val columns = lines(1).split(",").toList
+    assert(columns(0) == "benchmark")
+    assert(columns(1) == "result")    
+
+    val thmR = "Theorem\\((\\d+)\\)".r
+    val unkR = "Unknown\\((.*)\\)".r
+    val toR = "Timeout\\((.*)\\)".r
+    val erR = "Error\\((.*)\\)".r            
 
     val results = 
-      (for (l <- lines.tail) yield {
-        l match {
-          case thmR(bm, time) => bm -> Theorem(time.toInt)
-          case unkR(bm, time) => bm -> Unknown(time.toInt)
-          case toR(bm, time) => bm -> Timeout(time.toInt)
-          case erR(bm, time) => bm -> Error(time.toInt)
-        }
+      (for (l <- lines.drop(2)) yield {
+        val data = l.split(",")
+        val bm : String = data(0)
+        val result : Result = 
+          data(1) match {
+            case thmR(time) => Theorem(time.toInt)
+            case unkR(time) => Unknown(time.toInt)
+            case toR(time) => Timeout(time.toInt)
+            case erR(time) => Error(time.toInt)
+            case str => {
+              throw new Exception("Match error:" + str)
+            }
+          }
+
+        val extraData : Map[String, String] = 
+          (for ((k, v) <- columns.drop(2) zip data.drop(2)) yield {
+            k -> v
+          }).toMap
+
+        bm -> (result, extraData)
       }).toMap
 
-    println("Tool [" + tool + "] with " + timeout + " seconds timeout.")
-    ((tool, datestring), results)
+    ((tool, datestring), results, columns.drop(2))
   }
 
 
-  def printResult(results : Results) = {
-
-
+  def printResult(results : Results, columns : List[String]) = {
     val tools = results.map(_._1)
     val toolResults = results.map(_._2)
     val benchmarks = toolResults.map(_.keys.toSet).fold(Set())(_ ++ _).toList.sorted
@@ -48,7 +63,6 @@ object Deliquo {
     val longestTool = tools.map{ case (tn, ds) => tn.length.max(ds.length)}.max
     val longestBenchmark = benchmarks.map(_.length).max
     val CELL_WIDTH = longestTool+4    
-
 
 
     def res2str(r : Result) : (String, Int, String) = {
@@ -80,55 +94,65 @@ object Deliquo {
       (" "*longestBenchmark) + "  " +
         (for ((_, ds) <- tools) yield String.format("%-"+ CELL_WIDTH+ "s", "<" + ds + ">")).mkString("  ")    
 
-    val lines = 
-      (for (b <- benchmarks) yield {
+    val lines =
+      for (b <- benchmarks) yield {
         val str1 =
           String.format("%-"+ longestBenchmark + "s", b) + "  " +
             (for (t <- tools.indices) yield {
-              val (str, len, time) = res2str(toolResults(t)(b))
+              val (str, len, time) = res2str(toolResults(t)(b)._1)
               str + (" "*(CELL_WIDTH-len))
             }).mkString("  ")
 
         val str2 =
-          String.format("%-"+ longestBenchmark + "s", "-") + "  " +
+          String.format("%-"+ longestBenchmark + "s", "time") + "  " +
             (for (t <- tools.indices) yield {
-              val (_, _, timeStr) = res2str(toolResults(t)(b))              
+              val (_, _, timeStr) = res2str(toolResults(t)(b)._1)
               timeStr + (" "*(CELL_WIDTH-timeStr.length))
-            }).mkString("  ")        
+            }).mkString("  ")
 
-        str1 + "\n" + str2
-      })
 
-    val footer =
-      ("-"*(longestBenchmark+tools.length*CELL_WIDTH)) + "\n" +
-      String.format("%-"+ longestBenchmark + "s", "Total:") + "  " +
-        (for (t <- tools.indices) yield {
-          val count = toolResults(t).values.count(_.isInstanceOf[Theorem])
-          val total = benchmarks.length
-          val str = count + "/" + total
-          ("%-" + (CELL_WIDTH) + "s").format(str)
-        }).mkString("  ")
+        val strs =
+          for (c <- columns) yield {
+            String.format("%-"+ longestBenchmark + "s", c) + "  " +
+              (for (t <- tools.indices) yield {
+                val sstr = toolResults(t)(b)._2.getOrElse(c, "n/a")
+                sstr  + (" "*(CELL_WIDTH-sstr.length))
+              }).mkString("  ")
+          }
+        
+        (List(str1, str2) ++ strs).mkString("\n")
+      }
+
+    // val footer =
+    //   ("-"*(longestBenchmark+tools.length*CELL_WIDTH)) + "\n" +
+    //   String.format("%-"+ longestBenchmark + "s", "Total:") + "  " +
+    //     (for (t <- tools.indices) yield {
+    //       val count = toolResults(t).values.count(_.isInstanceOf[Theorem])
+    //       val total = benchmarks.length
+    //       val str = count + "/" + total
+    //       ("%-" + (CELL_WIDTH) + "s").format(str)
+    //     }).mkString("  ")
 
     Console.println(header1)
     Console.println(header2)    
     for (l <- lines)
       Console.println(l)
-    Console.println(footer)
+    // Console.println(footer)
   }
 
   def logs() = {
     val fileNames = 
       new File("logs/").listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList.sorted
 
-    println("Inputs:")
-    val files =
+    val columns = MSet() : MSet[String]
+    val results =
       for (f <- fileNames) yield {
-        println("\t" + f)
-        f
+        val (toolName, toolResults, cols) = parseCSV(f)
+        columns ++= cols.toSet
+        toolName -> toolResults
       }
 
-    val results : Results = files.map(parseCSV(_)).toList
-    printResult(results)
+    printResult(results, columns.toList.sorted)
   }
 
 

@@ -1,6 +1,6 @@
 <solvers>
   <solver>
-    <toolName>leanCoP</toolName>
+    <toolName>leancop</toolName>
     <toolCommand>/home/ptr/Downloads/leancop21/leancop.sh</toolCommand>
     <options>
     </options>
@@ -23,8 +23,14 @@
       <theorem></theorem>
       <invalid></invalid>
       <unknown>Incomplete search</unknown>
-      <timeout></timeout>
-      <error>ERROR</error>      
+      <timeout>TIMEOUT</timeout>
+      <error>ERROR</error>
+      <specials>
+	<special>
+	  <name>Progress</name>
+	  <regex>PROGRESS\((\d+\.\d+)\)</regex>
+	</special>
+      </specials>
     </parser>
     <parameters>
       <parameter>
