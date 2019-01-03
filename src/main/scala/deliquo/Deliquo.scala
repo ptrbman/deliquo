@@ -147,7 +147,6 @@ object Deliquo {
       val timeout = args(2).toInt
       for (ex <- execs)
         ex.runAllConfigs(inputDir, timeout)
-        // ex.run(inputDir, timeout)
     }
   }
 

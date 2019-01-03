@@ -106,7 +106,7 @@ abstract class Executor {
     if (!directory.exists())
       directory.mkdir();
 
-    val outFileName = "logs/" + toolName + "-" + dateString + ".out"
+    val outFileName = "logs/" + toolName + "-" + dateString + tag + ".out"
     println("Writing to: \"" + outFileName + "\"")
     val pw = new PrintWriter(new File(outFileName))
 
