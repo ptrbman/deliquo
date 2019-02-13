@@ -27,7 +27,6 @@ object Executor {
 
       val specials_ = 
         (for (sp <- xml_ \ "parser" \ "specials" \ "special") yield {
-          println("SP: " + sp)
           val name = (sp \ "name").text
           val regex = (sp \ "regex").text.r
           name -> regex
@@ -60,10 +59,6 @@ object Executor {
               extraData += name -> m.get.group(1)
           }
         }
-
-        println("SPECIAL OUTS")
-        println(extraData.mkString("\n"))
-        
 
         val result = 
           if (retVal == 124) {
