@@ -8,3 +8,9 @@ project/
 target/
 
 *.xml~
+
+oldlogs/
+
+*.scala~
+
+*.out

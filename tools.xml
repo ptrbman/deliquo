@@ -20,9 +20,9 @@
       <option>/home/ptr/Projects/bct/bin/bct.jar</option>
     </options>
     <parser>
-      <theorem></theorem>
+      <theorem>SAT</theorem>
       <invalid></invalid>
-      <unknown>Incomplete search</unknown>
+      <unknown>UNKNOWN</unknown>
       <timeout>TIMEOUT</timeout>
       <error>ERROR</error>
       <specials>
@@ -37,9 +37,14 @@
 	<name>regularity</name>
 	<commands>
 	  <command>+regularity</command>
-	  <command>-regularity</command>
 	</commands>
       </parameter>
+      <parameter>
+	<name>instantiate</name>
+	<commands>
+	  <command>-instantiate</command>
+	</commands>
+      </parameter>      
     </parameters>
   </solver>
 </solvers>

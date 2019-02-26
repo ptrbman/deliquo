@@ -42,14 +42,6 @@ object Executor {
         stderr : Array[String],
         time : Long) : Instance = {
 
-        for (l <- stdout)
-          println("STDOUT: " + l)
-
-        for (l <- stderr)
-          println("STDERR: " + l)
-
-        println("RETVAL: " + retVal)
-
         import scala.collection.mutable.{Map => MMap}
         val extraData = MMap() : MMap[String, String]
         for (l <- stdout) {
@@ -82,6 +74,7 @@ object Executor {
             throw new Exception("Unhandled " + name + " result")
           }
 
+        println("\t" + result)
         Instance(toolName, result, extraData.toMap)
       }
     })
@@ -111,7 +104,7 @@ abstract class Executor {
     val stderrWriter = new PrintWriter(stderrStream)
 
     val toCmd = List("timeout", timeout + "s") ++ cmd
-    Console.println(s"Command: ${YELLOW}" + toCmd.mkString(" ") + s"${RESET}")
+    Console.println(s"${YELLOW}" + toCmd.mkString(" ") + s"${RESET}")
     val exitValue = toCmd.!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
     stdoutWriter.close()
     stderrWriter.close()
@@ -139,7 +132,6 @@ abstract class Executor {
     pw.write((List("benchmark","result") ++ specials).mkString(",") + "\n")
     val resultMap = 
       for (f <- files) yield {
-        println("\t" + f)
 
         val START_TIME = System.currentTimeMillis
         val (exitVal, stdout, stderr) =

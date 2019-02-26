@@ -11,12 +11,16 @@ object Deliquo {
   type ToolName = (String, String)
   type Results = List[(ToolName, ToolResult)]
 
-  def parseCSV(fileName : String) : (ToolName, ToolResult, List[String]) = {
+  def parseCSV(fileName : String) : Option[(ToolName, ToolResult, List[String])] = {
     val lines = scala.io.Source.fromFile(fileName).getLines.toList
     val headerR = "(.*),(.*),(.*)".r
+    if (lines.length < 1)
+      return None
+
     val (tool, timeout, datestring) =
       lines(0) match {
         case headerR(a, b, c) => (a, b.toInt, c)
+        case _ => return None
       }
 
     val columns = lines(1).split(",").toList
@@ -51,7 +55,7 @@ object Deliquo {
         bm -> (result, extraData)
       }).toMap
 
-    ((tool, datestring), results, columns.drop(2))
+    Some((tool, datestring), results, columns.drop(2))
   }
 
 
@@ -99,14 +103,23 @@ object Deliquo {
         val str1 =
           String.format("%-"+ longestBenchmark + "s", b) + "  " +
             (for (t <- tools.indices) yield {
-              val (str, len, time) = res2str(toolResults(t)(b)._1)
+              val (str, len, time) =
+                if (toolResults(t) contains b)
+                  res2str(toolResults(t)(b)._1)
+                else
+                  ("", 0, "")
+
               str + (" "*(CELL_WIDTH-len))
             }).mkString("  ")
 
         val str2 =
           String.format("%-"+ longestBenchmark + "s", "time") + "  " +
             (for (t <- tools.indices) yield {
-              val (_, _, timeStr) = res2str(toolResults(t)(b)._1)
+              val (str, len, timeStr) =
+                if (toolResults(t) contains b)
+                  res2str(toolResults(t)(b)._1)
+                else
+                  ("", 0, "")              
               timeStr + (" "*(CELL_WIDTH-timeStr.length))
             }).mkString("  ")
 
@@ -115,7 +128,11 @@ object Deliquo {
           for (c <- columns) yield {
             String.format("%-"+ longestBenchmark + "s", c) + "  " +
               (for (t <- tools.indices) yield {
-                val sstr = toolResults(t)(b)._2.getOrElse(c, "n/a")
+                val sstr = 
+                  if (toolResults(t) contains b)
+                    toolResults(t)(b)._2.getOrElse(c, "n/a")
+                else
+                  ""
                 sstr  + (" "*(CELL_WIDTH-sstr.length))
               }).mkString("  ")
           }
@@ -140,14 +157,20 @@ object Deliquo {
     // Console.println(footer)
   }
 
-  def logs() = {
-    val fileNames = 
-      new File("logs/").listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList.sorted
+  def logs(args : Array[String]) = {
+    val dirs = 
+      if (args.length > 0)
+        args.toList
+      else
+        List("logs/")
+
+    val fileNames =
+      (for (d <- dirs) yield new File(d).listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList.sorted).flatten
 
     val columns = MSet() : MSet[String]
     val results =
-      for (f <- fileNames) yield {
-        val (toolName, toolResults, cols) = parseCSV(f)
+      for (f <- fileNames; if parseCSV(f).isDefined) yield {
+        val (toolName, toolResults, cols) = parseCSV(f).get
         columns ++= cols.toSet
         toolName -> toolResults
       }
@@ -195,7 +218,7 @@ object Deliquo {
       printHelp()
     } else {
       args(0) match {
-        case "logs" => logs()
+        case "logs" => logs(args.tail)
         case "run" => run(args.tail)
         case _ => printHelp()
       }
