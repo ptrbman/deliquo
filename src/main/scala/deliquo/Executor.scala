@@ -130,6 +130,7 @@ abstract class Executor {
 
     pw.write(List(toolName+tag, timeout, dateString).mkString(",") + "\n")
     pw.write((List("benchmark","result") ++ specials).mkString(",") + "\n")
+    pw.flush()
     val resultMap = 
       for (f <- files) yield {
 
@@ -142,6 +143,7 @@ abstract class Executor {
         val Instance(toolName, result, extraData) = parseOutput(exitVal, stdout, stderr, time)
         val line = (List(f.getName, result) ++ specials.map(extraData.getOrElse(_, "n/a"))).mkString(",") + "\n"
         pw.write(line)
+        pw.flush()
         f.getName -> result
       }
 
