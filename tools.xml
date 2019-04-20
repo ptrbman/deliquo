@@ -1,50 +1,41 @@
 <solvers>
   <solver>
-    <toolName>leancop</toolName>
-    <toolCommand>/home/ptr/Downloads/leancop21/leancop.sh</toolCommand>
+    <toolName>z3</toolName>
+    <toolCommand>/home/ptr/bin/z3</toolCommand>
     <options>
     </options>
     <parser>
-      <theorem>is a Theorem</theorem>
-      <invalid></invalid>
+      <theorem>^sat</theorem>
+      <invalid>unsat</invalid>
       <unknown></unknown>
       <timeout></timeout>
       <error></error>      
     </parser>
   </solver>
   <solver>
-    <toolName>bct</toolName>
-    <toolCommand>java</toolCommand>
+    <toolName>princess</toolName>
+    <toolCommand>/home/ptr/Projects/princess/bit-vectors/princess</toolCommand>
     <options>
-      <option>-jar</option>
-      <option>/home/ptr/Projects/bct/bin/bct.jar</option>
     </options>
     <parser>
-      <theorem>SAT</theorem>
-      <invalid></invalid>
-      <unknown>UNKNOWN</unknown>
-      <timeout>TIMEOUT</timeout>
-      <error>ERROR</error>
-      <specials>
-	<special>
-	  <name>Progress</name>
-	  <regex>PROGRESS\((\d+\.\d+)\)</regex>
-	</special>
-      </specials>
+      <theorem>^sat</theorem>
+      <invalid>unsat</invalid>
+      <unknown></unknown>
+      <timeout></timeout>
+      <error>java.lang.AssertionError|error</error>
     </parser>
-    <parameters>
-      <parameter>
-	<name>regularity</name>
-	<commands>
-	  <command>+regularity</command>
-	</commands>
-      </parameter>
-      <parameter>
-	<name>instantiate</name>
-	<commands>
-	  <command>-instantiate</command>
-	</commands>
-      </parameter>      
-    </parameters>
   </solver>
+  <solver>
+    <toolName>cvc4</toolName>
+    <toolCommand>/home/ptr/bin/cvc4</toolCommand>
+    <options>
+    </options>
+    <parser>
+      <theorem>^sat</theorem>
+      <invalid>unsat</invalid>
+      <unknown></unknown>
+      <timeout></timeout>
+      <error></error>
+    </parser>
+  </solver>  
 </solvers>
