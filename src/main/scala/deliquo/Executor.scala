@@ -6,8 +6,6 @@ import sys.process._
 import scala.Console
 import scala.Console._
 
-
-
 object Executor {
 
   def createSolver(xml_ : scala.xml.Node) : (String, Executor) = {
@@ -18,12 +16,17 @@ object Executor {
       override val toolCommand = (xml_ \ "toolCommand").text
 
       val px = xml_ \ "parser"
-      val (theoremStr, invalidStr, unknownStr, errorStr, timeoutStr) =
-        ((px \ "theorem").text,
+
+      val List(theoremStr, invalidStr, unknownStr, errorStr, timeoutStr) =
+        List(
+          (px \ "theorem").text,
           (px \ "invalid").text,
           (px \ "unknown").text,
           (px \ "error").text,
-          (px \ "timeout").text)
+          (px \ "timeout").text).map(_ match {
+            case "" => None
+            case str => Some(str.r)
+          })
 
       val specials_ = 
         (for (sp <- xml_ \ "parser" \ "specials" \ "special") yield {
@@ -51,19 +54,18 @@ object Executor {
               extraData += name -> m.get.group(1)
           }
         }
-
         val result = 
           if (retVal == 124) {
             Timeout(time)
-          } else if (theoremStr != "" && stdout.exists(_ contains theoremStr)) {
+          } else if (theoremStr.isDefined && stdout.exists(theoremStr.get.findFirstIn(_).isDefined)) {
             Theorem(time)
-          } else if (invalidStr != "" && stdout.exists(_ contains invalidStr)) {
+          } else if (invalidStr.isDefined && stdout.exists(invalidStr.get.findFirstIn(_).isDefined)) {
             Invalid(time)
-          } else if (unknownStr != "" && stdout.exists(_ contains unknownStr)) {
+          } else if (unknownStr.isDefined && stdout.exists(unknownStr.get.findFirstIn(_).isDefined)) {
             Unknown(time)
-          } else if (errorStr != "" && stdout.exists(_ contains errorStr)) {
+          } else if (errorStr.isDefined && (stdout.exists(errorStr.get.findFirstIn(_).isDefined) || stderr.exists(errorStr.get.findFirstIn(_).isDefined))) {
             Error(time)
-          } else if (timeoutStr != "" && stdout.exists(_ contains timeoutStr)) {
+          } else if (timeoutStr.isDefined && stdout.exists(timeoutStr.get.findFirstIn(_).isDefined)) {
             Timeout(time)
           } else {
             for (l <- stdout)
@@ -71,7 +73,8 @@ object Executor {
             for (l <- stderr)
               println("STDERR: " + l)
             println("RETVAL: " + retVal)
-            throw new Exception("Unhandled " + name + " result")
+            // throw new Exception("Unhandled " + name + " result")
+            Error(time)
           }
 
         println("\t" + result)
@@ -97,7 +100,7 @@ abstract class Executor {
   val xml = None : Option[scala.xml.Node]
   def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String], time : Long) : Instance
 
-  def runCommand(cmd: Seq[String], timeout : Int): (Int, Array[String], Array[String]) = {
+  def executeCommand(cmd: Seq[String], timeout : Int): (Int, Array[String], Array[String]) = {
     val stdoutStream = new ByteArrayOutputStream
     val stderrStream = new ByteArrayOutputStream
     val stdoutWriter = new PrintWriter(stdoutStream)
@@ -111,9 +114,21 @@ abstract class Executor {
     (exitValue, stdoutStream.toString.split("\n"), stderrStream.toString.split("\n"))
   }
 
-  def run(inputDir : String, timeout : Int, extraOptions : List[String] = List(), tag : String = "") = {
-    D.dboxprintln(toolName + " " + tag, "YELLOW")
-    val files = (new File(inputDir)).listFiles.filter(_.isFile).toList
+  def execute(input : String, timeout : Int, extraOptions : List[String] = List(), output : String = "") = {
+    if (output == "")
+      D.dboxprintln(toolName + " " + extraOptions.mkString("&"), "YELLOW")
+    else
+      D.dboxprintln(output, "YELLOW")
+    val inputFile = new File(input)
+
+    val files =
+      if (inputFile.isDirectory) {
+        println("Loading directory: " + input)
+        inputFile.listFiles.filter(_.isFile).toList
+      } else {
+        println("Loading file: " + input)        
+        scala.io.Source.fromFile(input).getLines.toList.map(new File(_))
+      }
 
     import java.text.SimpleDateFormat
     import java.util.Calendar
@@ -124,19 +139,25 @@ abstract class Executor {
     if (!directory.exists())
       directory.mkdir();
 
-    val outFileName = "logs/" + toolName + "-" + dateString + tag + ".out"
+    val outFileName =
+      if (output != "")
+        "logs/" + output + ".out"
+      else
+        "logs/" + toolName + "-" + dateString + extraOptions.mkString("&") + ".out"
     println("Writing to: \"" + outFileName + "\"")
     val pw = new PrintWriter(new File(outFileName))
 
-    pw.write(List(toolName+tag, timeout, dateString).mkString(",") + "\n")
+    if (output == "")
+      pw.write(List(toolName+extraOptions.mkString("&"), timeout, dateString).mkString(",") + "\n")
+    else
+      pw.write(List(output, timeout, dateString).mkString(",") + "\n")
     pw.write((List("benchmark","result") ++ specials).mkString(",") + "\n")
     pw.flush()
     val resultMap = 
       for (f <- files) yield {
-
         val START_TIME = System.currentTimeMillis
         val (exitVal, stdout, stderr) =
-          runCommand(toolCommand :: (options ++ extraOptions ++ List(f.getPath)), timeout)
+          executeCommand(toolCommand :: (options ++ extraOptions ++ List(f.getPath)), timeout)
         val END_TIME = System.currentTimeMillis
 
         val time = END_TIME - START_TIME
@@ -150,7 +171,7 @@ abstract class Executor {
     pw.close()
   }
 
-  def runAllConfigs(inputDir : String, timeout : Int) = {
+  def executeAllConfigs(inputDir : String, timeout : Int, output : String = "") = {
 
     def allConfigs(list : List[List[String]]) : List[List[String]] = {
       list match {
@@ -170,7 +191,7 @@ abstract class Executor {
         }).toList
       }).toList
     for (cfg <- allConfigs(commands)) {
-      run(inputDir, timeout, cfg, cfg.mkString("&"))
+      execute(inputDir, timeout, cfg, output)
     }
   }
 }

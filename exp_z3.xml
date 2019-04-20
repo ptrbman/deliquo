@@ -1,0 +1,20 @@
+<experiments>
+  <experiment>
+    <name>z3-smtlib</name>
+    <solver>z3</solver>
+    <timeout>5</timeout>
+    <input>problems.txt</input>
+  </experiment>
+  <experiment>
+    <name>cvc4-smtlib</name>
+    <solver>cvc4</solver>
+    <timeout>5</timeout>
+    <input>problems.txt</input>
+  </experiment>
+  <experiment>
+    <name>princess-smtlib</name>
+    <solver>princess</solver>
+    <timeout>5</timeout>
+    <input>problems.txt</input>
+  </experiment>  
+</experiments>

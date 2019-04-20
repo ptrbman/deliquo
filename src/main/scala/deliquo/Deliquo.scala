@@ -1,9 +1,9 @@
 package deliquo
 
-import Console.{GREEN, RED, RESET, YELLOW, UNDERLINED}
+import Console.{GREEN, RED, RESET, YELLOW, UNDERLINED, BLUE}
 import java.io.File
 import scala.collection.mutable.{Set => MSet}
-
+import scala.xml.XML
 object Deliquo {
 
   type Benchmark = String
@@ -28,6 +28,7 @@ object Deliquo {
     assert(columns(1) == "result")    
 
     val thmR = "Theorem\\((\\d+)\\)".r
+    val invR = "Invalid\\((\\d+)\\)".r    
     val unkR = "Unknown\\((.*)\\)".r
     val toR = "Timeout\\((.*)\\)".r
     val erR = "Error\\((.*)\\)".r            
@@ -39,6 +40,7 @@ object Deliquo {
         val result : Result = 
           data(1) match {
             case thmR(time) => Theorem(time.toInt)
+            case invR(time) => Invalid(time.toInt)
             case unkR(time) => Unknown(time.toInt)
             case toR(time) => Timeout(time.toInt)
             case erR(time) => Error(time.toInt)
@@ -74,6 +76,10 @@ object Deliquo {
         case Theorem(time) => {
           val t = "%.3f".format((time.toFloat/1000.0.toFloat))
           (s"${GREEN}Thm${RESET}", 3, t)
+        }
+        case Invalid(time) => {
+          val t = "%.3f".format((time.toFloat/1000.0.toFloat))
+          (s"${BLUE}Inv${RESET}", 3, t)
         }
         case Timeout(time) => {
           val t = "%.3f".format(time.toFloat/1000.0.toFloat)          
@@ -179,10 +185,10 @@ object Deliquo {
   }
 
 
-  def run(args : Array[String]) = {
+  def execute(args : Array[String]) = {
     val executors = Executor.fromXML("tools.xml")
     if (args.length < 3) {
-      printHelp("run")
+      printHelp("execute")
     } else {
       val execs = 
         args(0) match {
@@ -193,7 +199,27 @@ object Deliquo {
       val inputDir = args(1)
       val timeout = args(2).toInt
       for (ex <- execs)
-        ex.runAllConfigs(inputDir, timeout)
+        ex.executeAllConfigs(inputDir, timeout)
+    }
+  }
+
+  def tools(args : Array[String]) = {
+    val executors = Executor.fromXML("tools.xml")
+    for (e <- executors)
+      println(e)
+  }
+
+  def script(args : Array[String]) = {
+    println("Loading script: " + args(0))
+    val xml = XML.loadFile(args(0))
+
+    for (exp <- (xml \ "experiment")) {
+      val name = (exp \ "name").text
+      val solver = (exp \ "solver").text
+      val timeout = (exp \ "timeout").text.toInt
+      val input = (exp \ "input").text
+      val executors = Executor.fromXML("tools.xml")
+      executors(solver).executeAllConfigs(input, timeout, name)
     }
   }
 
@@ -202,12 +228,14 @@ object Deliquo {
     cat match {
       case "" => {
         println("Usage")
-        println("\tLOGS")
-        println("\tRUN")
+        println("tools: List available tools")
+        println("logs: Show logs")
+        println("execute: Execute experiment")
+        println("For more help, try help [command]")
       }
 
-      case "run" => {
-        Console.println(s"Usage: ${YELLOW}run ${RESET}solver input-directory timeout(s)")
+      case "execute" => {
+        Console.println(s"Usage: ${YELLOW}execute ${RESET}solver input-directory timeout(s)")
       }
     }
   }
@@ -219,7 +247,9 @@ object Deliquo {
     } else {
       args(0) match {
         case "logs" => logs(args.tail)
-        case "run" => run(args.tail)
+        case "execute" => execute(args.tail)
+        case "script" => script(args.tail)
+        case "tools" => tools(args.tail)
         case _ => printHelp()
       }
     }
