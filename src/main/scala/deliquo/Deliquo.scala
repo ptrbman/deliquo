@@ -163,6 +163,124 @@ object Deliquo {
     // Console.println(footer)
   }
 
+  def printSanity(results : Results, columns : List[String]) = {
+    val tools = results.map(_._1)
+    val toolResults = results.map(_._2)
+    val benchmarks = toolResults.map(_.keys.toSet).fold(Set())(_ ++ _).toList.sorted
+
+    val longestTool = tools.map{ case (tn, ds) => tn.length.max(ds.length)}.max
+    val longestBenchmark = benchmarks.map(_.length).max
+    val CELL_WIDTH = longestTool+4    
+
+
+    def res2str(r : Result) : (String, Int, String) = {
+      r match {
+        case Theorem(time) => {
+          val t = "%.3f".format((time.toFloat/1000.0.toFloat))
+          (s"${GREEN}Thm${RESET}", 3, t)
+        }
+        case Invalid(time) => {
+          val t = "%.3f".format((time.toFloat/1000.0.toFloat))
+          (s"${BLUE}Inv${RESET}", 3, t)
+        }
+        case Timeout(time) => {
+          val t = "%.3f".format(time.toFloat/1000.0.toFloat)          
+          (s"${RESET}T/o${RESET}", 3, t)
+        }          
+        case Unknown(time) => {
+          val t = "%.3f".format(time.toFloat/1000.0.toFloat)                    
+          (s"${YELLOW}Unknown${RESET}", 7, t)
+        }
+        case Error(time) => {
+          val t = "%.3f".format(time.toFloat/1000.0.toFloat)          
+          (s"${RED}Error${RESET}", 5, t)
+        }
+      }
+    }
+
+    val header1 =
+      (" "*longestBenchmark) + "  " +
+        (for ((t, _) <- tools) yield String.format("%-"+ CELL_WIDTH+ "s", "<" + t + ">")).mkString("  ")
+
+    val header2 =
+      (" "*longestBenchmark) + "  " +
+        (for ((_, ds) <- tools) yield String.format("%-"+ CELL_WIDTH+ "s", "<" + ds + ">")).mkString("  ")    
+
+    def broken(b : String) : Boolean = {
+      val results = 
+        for (tool <- toolResults) yield {
+          if (tool contains b) {
+            tool(b)._1 match {
+              case Theorem(_) => Some(true)
+              case Invalid(_) => Some(false)
+              case _ => None
+            }
+          }else {
+            None
+          }
+        }
+      results.filter(_.isDefined).toSet.size > 1
+    }
+
+    val lines =
+      for (b <- benchmarks; if broken(b)) yield {
+        val str1 =
+          String.format("%-"+ longestBenchmark + "s", b) + "  " +
+            (for (t <- tools.indices) yield {
+              val (str, len, time) =
+                if (toolResults(t) contains b)
+                  res2str(toolResults(t)(b)._1)
+                else
+                  ("", 0, "")
+
+              str + (" "*(CELL_WIDTH-len))
+            }).mkString("  ")
+
+        val str2 =
+          String.format("%-"+ longestBenchmark + "s", "time") + "  " +
+            (for (t <- tools.indices) yield {
+              val (str, len, timeStr) =
+                if (toolResults(t) contains b)
+                  res2str(toolResults(t)(b)._1)
+                else
+                  ("", 0, "")              
+              timeStr + (" "*(CELL_WIDTH-timeStr.length))
+            }).mkString("  ")
+
+
+        val strs =
+          for (c <- columns) yield {
+            String.format("%-"+ longestBenchmark + "s", c) + "  " +
+              (for (t <- tools.indices) yield {
+                val sstr = 
+                  if (toolResults(t) contains b)
+                    toolResults(t)(b)._2.getOrElse(c, "n/a")
+                else
+                  ""
+                sstr  + (" "*(CELL_WIDTH-sstr.length))
+              }).mkString("  ")
+          }
+
+        (List(str1, str2) ++ strs).mkString("\n")
+      }
+
+    // val footer =
+    //   ("-"*(longestBenchmark+tools.length*CELL_WIDTH)) + "\n" +
+    //   String.format("%-"+ longestBenchmark + "s", "Total:") + "  " +
+    //     (for (t <- tools.indices) yield {
+    //       val count = toolResults(t).values.count(_.isInstanceOf[Theorem])
+    //       val total = benchmarks.length
+    //       val str = count + "/" + total
+    //       ("%-" + (CELL_WIDTH) + "s").format(str)
+    //     }).mkString("  ")
+
+    Console.println(header1)
+    Console.println(header2)    
+    for (l <- lines)
+      Console.println(l)
+    // Console.println(footer)
+  }  
+
   def logs(args : Array[String]) = {
     val dirs = 
       if (args.length > 0)
@@ -183,6 +301,27 @@ object Deliquo {
 
     printResult(results, columns.toList.sorted)
   }
+
+  def sanity(args : Array[String]) = {
+    val dirs = 
+      if (args.length > 0)
+        args.toList
+      else
+        List("logs/")
+
+    val fileNames =
+      (for (d <- dirs) yield new File(d).listFiles.filter(_.isFile).filter(_.getName.endsWith(".out")).map(_.toString).toList.sorted).flatten
+
+    val columns = MSet() : MSet[String]
+    val results =
+      for (f <- fileNames; if parseCSV(f).isDefined) yield {
+        val (toolName, toolResults, cols) = parseCSV(f).get
+        columns ++= cols.toSet
+        toolName -> toolResults
+      }
+
+    printSanity(results, columns.toList.sorted)
+  }  
 
 
   def execute(args : Array[String]) = {
@@ -247,6 +386,7 @@ object Deliquo {
     } else {
       args(0) match {
         case "logs" => logs(args.tail)
+        case "sanity" => sanity(args.tail)          
         case "execute" => execute(args.tail)
         case "script" => script(args.tail)
         case "tools" => tools(args.tail)
