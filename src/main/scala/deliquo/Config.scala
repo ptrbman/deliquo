@@ -5,6 +5,7 @@ import scopt.OParser
 case class Config(
   showTools : Boolean = false,
   inputFiles : Array[String] = Array(),
+  experiment : String = "",
   tools : Array[String] = Array(),
   timeout : Int = Configuration.DEFAULT_TIMEOUT
 )
@@ -30,7 +31,10 @@ object Configuration {
           .text("Timeout in seconds (default: " + DEFAULT_TIMEOUT + ")"),
         opt[Unit]("show-tools")
           .action((_, c) => c.copy(showTools = true))
-          .text("List all tools and exit")
+          .text("List all tools and exit"),
+        opt[String]("exp")
+          .action((x, c) => c.copy(experiment = x))
+          .text("Run experiment <exp>"),          
       )
     }
     OParser.parse(parser1, args, Config())
