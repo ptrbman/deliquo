@@ -379,20 +379,119 @@ object Deliquo {
     }
   }
 
-  def main(args : Array[String]) = {
+  // def main(args : Array[String]) = {
 
-    if (args.isEmpty) {
-      printHelp()
-    } else {
-      args(0) match {
-        case "logs" => logs(args.tail)
-        case "sanity" => sanity(args.tail)          
-        case "execute" => execute(args.tail)
-        case "script" => script(args.tail)
-        case "tools" => tools(args.tail)
-        case _ => printHelp()
-      }
+  //   if (args.isEmpty) {
+  //     printHelp()
+  //   } else {
+  //     args(0) match {
+  //       case "logs" => logs(args.tail)
+  //       case "sanity" => sanity(args.tail)          
+  //       case "execute" => execute(args.tail)
+  //       case "script" => script(args.tail)
+  //       case "tools" => tools(args.tail)
+  //       case _ => printHelp()
+  //     }
+  //   }
+  //   Console.println(s"${RESET}${GREEN}Goodbye!${RESET}")
+  // }
+
+
+
+  import scopt.OParser
+
+
+  // import java.io.File
+  // case class Config(
+  //   foo: Int = -1,
+  //   out: File = new File("."),
+  //   xyz: Boolean = false,
+  //   libName: String = "",
+  //   maxCount: Int = -1,
+  //   verbose: Boolean = false,
+  //   debug: Boolean = false,
+  //   mode: String = "",
+  //   files: Seq[File] = Seq(),
+  //   keepalive: Boolean = false,
+  //   jars: Seq[File] = Seq(),
+  //   kwargs: Map[String, String] = Map())
+
+  val DEFAULT_TIMEOUT = 5
+
+  case class Config(
+    showTools : Boolean = false,
+    inputFiles : Array[String] = Array(),
+    tools : Array[String] = Array(),
+    timeout : Int = DEFAULT_TIMEOUT
+  )
+
+  val builder = OParser.builder[Config]
+  val parser1 = {
+    import builder._
+    OParser.sequence(
+      programName("Deliquo"),
+      head("Deliquo", "0.1"),
+      opt[String]("files")
+        .action((x, c) => c.copy(inputFiles = x.split(',')))
+        .text("(Single) Input file"),
+      opt[String]("tools")
+        .action((x, c) => c.copy(tools = x.split(',')))
+        .text("Use tool <tool1>,<tool2>,..."),
+      opt[Int]('t', "timeout")
+        .action((x, c) => c.copy(timeout = x))
+        .text("Timeout in seconds (default: " + DEFAULT_TIMEOUT + ")"),
+      opt[Unit]("show-tools")
+        .action((_, c) => c.copy(showTools = true))
+        .text("List all tools and exit")
+    )
+  }
+
+
+  def printTools(tools : Seq[Tool]) = {
+    println("< --- Tools --- >")
+    for (t <- tools)
+      println(t)
+  }
+
+  def loadTools() : Seq[Tool] = {
+    val toolFiles = new File("tools/").listFiles.filter(_.isFile).filter(_.getName.endsWith(".tool")).toList
+    for (tf <- toolFiles) yield {
+      Tool.fromXML(tf.getPath)
     }
-    Console.println(s"${RESET}${GREEN}Goodbye!${RESET}")
+
+  }
+
+  def main(args : Array[String]) = {
+    val tools = loadTools()
+
+    OParser.parse(parser1, args, Config()) match {
+      case Some(config) =>
+        if (config.showTools) {
+          printTools(tools)
+        } else {
+          println("Input files: ")
+          for (file <- config.inputFiles)
+            println("\t" + file)
+
+
+          val usedTools = 
+            for (tool <- config.tools) yield tools.find(_.name == tool).get
+
+          println("Used Tools: ")
+          for (t <- usedTools)
+            println("\t" + t)
+
+
+          for (t <- usedTools) {
+            for (f <- config.inputFiles) {
+              t.execute(f, config.timeout)
+            }
+          }
+        }
+      case _ =>
+        println("Unrecognized command")
+        // arguments are bad, error message will have been displayed
+    }
+
   }
 }
