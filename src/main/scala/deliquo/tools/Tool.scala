@@ -1,13 +1,13 @@
 package deliquo
 
 import scala.xml.XML
-import java.io._
+import java.io.{ByteArrayOutputStream, File, PrintWriter}
 import sys.process._
-import scala.Console
-import scala.Console._
+import scala.Console.{RESET, YELLOW}
 
 object Tool {
 
+  // A tool is loaded from an XML-file
   def loadTool(xml_ : scala.xml.Node) : Tool = {
     val toolName = (xml_ \ "name").text
     val toolPath = (xml_ \ "path").text
@@ -32,8 +32,7 @@ object Tool {
       override def parseOutput(
         retVal : Int,
         stdout : Array[String],
-        stderr : Array[String],
-        time : Long) : Map[String, String] = {
+        stderr : Array[String]) : Map[String, String] = {
 
         var result = ""
         var extras = Array.ofDim[String](extraMap.length)
@@ -90,14 +89,15 @@ object Tool {
   }
 }
 
+
+
 abstract class Tool(val name : String, command : String, arguments : List[String] = List()) {
 
   override def toString() : String = {
     return name
   }
-  // val specials : List[String]
-  // val xml = None : Option[scala.xml.Node]
-  def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String], time : Long) : Map[String, String]
+
+  def parseOutput(retVal : Int, stdout : Array[String], stderr : Array[String]) : Map[String, String]
 
   def executeCommand(cmd: Seq[String], timeout : Int): (Int, Array[String], Array[String]) = {
     val stdoutStream = new ByteArrayOutputStream
@@ -113,79 +113,19 @@ abstract class Tool(val name : String, command : String, arguments : List[String
     (exitValue, stdoutStream.toString.split("\n"), stderrStream.toString.split("\n"))
   }
 
-  def execute(input : String, timeout : Int, extraOptions : List[String] = List(), output : String = "") : String = {
+  def execute(input : String, timeout : Int, extraOptions : List[String] = List(), output : String = "") : Instance = {
     D.dboxprintln(name + " " + extraOptions.mkString("&") + "(" + output + ")", "YELLOW")
     val inputFile = new File(input)
 
-
-    import java.text.SimpleDateFormat
-    import java.util.Calendar
-
-    val dateString = new SimpleDateFormat("MMdd-hhmm").format(Calendar.getInstance.getTime)
-
-    // val directory = new File("logs/");
-    // if (!directory.exists())
-    //   directory.mkdir();
-
-    // val outFileName =
-    //   if (output != "")
-    //     "logs/" + output + ".out"
-    //   else
-    //     "logs/" + name + "-" + dateString + extraOptions.mkString("&") + ".out"
-
-    // println("Writing to: \"" + outFileName + "\"")
-    // val pw = new PrintWriter(new File(outFileName))
-
-    // if (output == "")
-    //   pw.write(List(name+extraOptions.mkString("&"), timeout, dateString).mkString(",") + "\n")
-    // else
-    //   pw.write(List(output, timeout, dateString).mkString(",") + "\n")
-    // pw.write((List("benchmark","result") ++ specials).mkString(",") + "\n")
-    // pw.flush()
-    // val resultMap = 
-    //   for (f <- files) yield {
     val START_TIME = System.currentTimeMillis
     val (exitVal, stdout, stderr) =
       executeCommand(command :: (arguments ++ extraOptions ++ List(inputFile.getPath)), timeout)
     val END_TIME = System.currentTimeMillis
 
     val time = END_TIME - START_TIME
-    val result = parseOutput(exitVal, stdout, stderr, time)
-    // val Instance(name, result, extraData) = parseOutput(exitVal, stdout, stderr, time)
-    // val line = (List(inputFile.getName, result) ++ specials.map(extraData.getOrElse(_, "n/a"))).mkString(",") + "\n"
-    // val line = (List(inputFile.getName, result)).mkString(",") + "\n"    
-    // println(line)
-    // pw.write(line)
-    // pw.flush()
-    // f.getName -> result
-    //   }
+    val result = parseOutput(exitVal, stdout, stderr)
 
     println(result)
-    // pw.close()
-    result("result")
+    Instance(name, input, (Map(("time",time.toString)) ++ result))
   }
-
-  // def executeAllConfigs(inputDir : String, timeout : Int, output : String = "") = {
-
-  //   def allConfigs(list : List[List[String]]) : List[List[String]] = {
-  //     list match {
-  //       case Nil => List(List())
-  //       case param :: tail => {
-  //         val tailConfigs = allConfigs(tail)
-  //         (param.map{ p => tailConfigs.map(p :: _) }).flatten
-  //       }
-  //     }
-  //   }
-
-  //   val params = xml.get \ "parameters" \ "parameter"
-  //   val commands = 
-  //     (for (p <- params) yield {
-  //         (for (c <- p \ "commands" \ "command") yield {
-  //         c.text
-  //       }).toList
-  //     }).toList
-  //   for (cfg <- allConfigs(commands)) {
-  //     execute(inputDir, timeout, cfg, output)
-  //   }
-  // }
 }
