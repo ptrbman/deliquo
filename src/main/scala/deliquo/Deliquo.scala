@@ -28,11 +28,9 @@ object Deliquo {
         } else if (config.experiment != "") {
           println("Running experiment!")
           val exp = Experiment(config.experiment)
-          println(exp)
-          println(exp.writeXML("test.xml"))
-          // val results = exp.run(tools)
-          // println(results.mkString("\n"))
-          // CSV.writeInstances(results.toList, exp.output)
+          val results = exp.run(tools)
+          println(results.mkString("\n"))
+          CSV.writeInstances(results.toList, exp.output)
         } else {
           println("Input files: ")
           for (file <- config.inputFiles)

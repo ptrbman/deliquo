@@ -34,7 +34,7 @@ object Configuration {
           .text("List all tools and exit"),
         opt[String]("exp")
           .action((x, c) => c.copy(experiment = x))
-          .text("Run experiment <exp>"),          
+          .text("Run experiment <exp>")
       )
     }
     OParser.parse(parser1, args, Config())
