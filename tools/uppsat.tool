@@ -1,0 +1,25 @@
+<tool>
+  <name>uppsat</name>
+  <path>/usr/bin/</path>
+  <command>java</command>
+  <arguments>
+    <argument>-jar</argument>
+    <argument>/home/ptr/bin/uppsat.jar</argument>    
+  </arguments>
+  <options>
+  </options>
+  <parser>
+    <results>
+      <result>
+	<regex>^sat</regex>
+	<value>SAT</value>
+      </result>
+      <result>
+	<regex>unsat</regex>
+	<value>UNSAT</value>
+      </result>
+    </results>
+    <extras>
+    </extras>
+  </parser>
+</tool>

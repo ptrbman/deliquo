@@ -51,10 +51,20 @@ object Tool {
           }
         }
 
-        if (retVal == 124)
-          result =  "Timeout"
+        var terminated = false
 
-        if (result == "") {
+        if (retVal == 1) {
+          result = "Error"
+          terminated = true
+        }
+
+        if (retVal == 124) {
+          result =  "Timeout"
+          terminated = true
+        }
+
+
+        if (!terminated && result == "") {
           println("<<STDOUT>>")
           println(stdout.mkString("\n"))
           println("<<STDERR>>")
@@ -65,7 +75,7 @@ object Tool {
 
         val extra : List[(String, String)] =
           (for ((ex, i) <- (extras zipWithIndex).toList) yield {
-            if (extras(i) == "") {
+            if (!terminated && extras(i) == "") {
               println("<<STDOUT>>")
               println(stdout.mkString("\n"))
               println("<<STDERR>>")
