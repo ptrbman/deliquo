@@ -17,7 +17,7 @@ object Experiment {
     val expName = (xml \ "name").text
     val timeout = (xml \ "timeout").text.toInt
     val output = (xml \ "output").text    
-    val inputs = for (i <- xml \ "inputs" \ "input") yield i.text
+    val inputs = for (i <- xml \ "inputs" \ "input") yield i.text.trim
     val toolConfigs = for (tc <- xml \ "toolconfigs" \ "toolconfig") yield ToolConfig((tc \ "name").text)
 
     Experiment(expName, timeout, output, inputs.toList, toolConfigs.toList) 
