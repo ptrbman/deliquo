@@ -4,6 +4,7 @@ import scala.xml.XML
 import java.io.{ByteArrayOutputStream, File, PrintWriter}
 import sys.process._
 import scala.Console.{RESET, YELLOW}
+import scala.language.postfixOps
 
 object Tool {
 
