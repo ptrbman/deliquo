@@ -16,8 +16,22 @@ object Tool {
     val arguments =
       for (arg <- xml_ \ "arguments" \ "argument") yield arg.text
 
+    val options =
+        for (opt <- xml_ \ "options" \ "option") yield {
+          val name = (opt \ "name").text
+          val values = 
+            for (value <- opt \ "values" \ "value") yield {
+              val name = (value \ "name").text
+              val arg = (value \ "argument").text
+              (name, arg)
+            }
 
-    new Tool(toolName, toolPath + "/" + toolCommand, arguments.toList) {
+          (name, values.toList)
+      }
+
+    println(options.mkString("\n"))
+    
+    new Tool(toolName, toolPath + "/" + toolCommand, arguments.toList, options.toList) {
 
       val resultMap =
         for (r <- xml_ \"parser" \ "results" \ "result") yield {
@@ -102,7 +116,7 @@ object Tool {
 
 
 
-abstract class Tool(val name : String, command : String, arguments : List[String] = List()) {
+abstract class Tool(val name : String, command : String, arguments : List[String], val options : List[(String, List[(String, String)])]) {
 
   override def toString() : String = {
     return name

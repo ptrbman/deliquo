@@ -10,7 +10,7 @@ import scalafx.collections.ObservableBuffer
 import scalafx.scene.{Cursor, Scene}
 import scalafx.scene.paint.Color
 import scalafx.scene.control.TextFormatter.Change
-import scalafx.scene.control.{Button, CheckBox, Label, ListCell, ListView, TextArea, TextField, TextFormatter}
+import scalafx.scene.control.{Button, CheckBox, Label, ListCell, ListView, TextArea, TextField, TextFormatter, Tab, TabPane}
 import scalafx.scene.layout.{BorderPane, VBox, HBox}
 import scalafx.util.StringConverter
 import scalafx.scene.layout.VBox
@@ -25,15 +25,16 @@ object GenerateExperiment extends JFXApp {
 
   val toolFiles =
     new File("tools/").listFiles.filter(_.isFile).filter(_.getName.endsWith(".tool")).toList
-  val toolBoxes = 
-    for (tf <- toolFiles) yield {
-      new CheckBox { text = Tool.fromXML(tf.getPath).name }
-    }
+  val tools = for (tf <- toolFiles) yield Tool.fromXML(tf.getPath)
+  val toolBoxes : Map[Tool, CheckBox] = 
+    (for (t <- tools) yield {
+      t -> new CheckBox { text = t.name }
+    }).toMap
 
   val nameField = new TextField { text = "experiment_name" }
   val outputField = new TextField { text = "experiment_output.out" }
   val timeoutField = new TextField { text = "60" }
-  val expOutputField = new TextField { text = "experiment.exp" }      
+  val expOutputField = new TextField { text = "experiment.exp" }
 
   val fileList = new ListView[String] {
     orientation = Orientation.Vertical
@@ -64,6 +65,35 @@ object GenerateExperiment extends JFXApp {
   }  
 
 
+  val toolPane = new TabPane
+    val tabs : List[Tab] = 
+      for (t <- tools) yield {
+        val text = t.name
+        val tab = new Tab
+        val layouts = 
+        for ((option, values) <- t.options) yield {
+          println(option + "->" + values)
+          val tg = new ToggleGroup
+          val buttons = 
+            for ((value, argument) <- values) yield {
+              val rb = new RadioButton(value)
+              rb.setToggleGroup(tg)
+              rb
+            }
+          new VBox { children = buttons }
+        }
+
+        val rb1 = new RadioButton("test")
+        tab.text = text
+        tab.setClosable(false)
+        val layout = new HBox { children = layouts }
+        tab.content = layout
+        tab
+      }
+
+  toolPane.tabs = tabs.toList
+
+
   def hd(text_ : String) = {
     new Text {
       text = text_
@@ -84,7 +114,7 @@ object GenerateExperiment extends JFXApp {
             hd("Output"), outputField,
             hd("Timeout"), timeoutField,
             hd("Folder"), fileList, selectFolderButton,
-            hd("ToolConfigs")) ++ toolBoxes ++ Seq(
+            hd("ToolConfigs")) ++ Seq(toolPane,
             hd("Experiment File output"), expOutputField,
               generateButton
           )
@@ -125,9 +155,9 @@ object GenerateExperiment extends JFXApp {
       }).toList
 
     val toolConfigs =
-      for (cb <- toolBoxes.filter(_.selected.value)) yield {
+      (for (cb <- toolBoxes.map(_._2).filter(_.selected.value)) yield {
         ToolConfig(cb.text.value)
-      }
+      }).toList
 
     val exp = Experiment(
       nameField.text.get,

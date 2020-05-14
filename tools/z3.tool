@@ -1,6 +1,6 @@
 <tool>
   <name>z3</name>
-  <path>/home/ptr/bin</path>
+  <path>/usr/local/bin</path>
   <command>z3</command>
   <arguments>
     <argument>-st</argument>

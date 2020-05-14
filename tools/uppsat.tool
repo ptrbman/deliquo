@@ -1,25 +1,39 @@
 <tool>
   <name>uppsat</name>
-  <path>/usr/bin/</path>
+  <path>/usr/bin</path>
   <command>java</command>
   <arguments>
     <argument>-jar</argument>
-    <argument>/home/ptr/bin/uppsat.jar</argument>    
+    <argument>/opt/uppsat/uppsat.jar</argument>    
   </arguments>
   <options>
+    <option>
+      <name>Approximation</name>
+      <values>
+        <value>
+          <name>SmallFloats</name>
+          <argument>-app=ijcar</argument>
+        </value>
+        <value>
+          <name>FixedPoint</name>
+          <argument>-app=fixedpoint</argument>
+        </value>
+      </values>
+    </option>
   </options>
   <parser>
     <results>
       <result>
-	<regex>^sat</regex>
-	<value>SAT</value>
+	      <regex>^sat</regex>
+	      <value>SAT</value>
       </result>
       <result>
-	<regex>unsat</regex>
-	<value>UNSAT</value>
+	      <regex>unsat</regex>
+	      <value>UNSAT</value>
       </result>
     </results>
     <extras>
     </extras>
   </parser>
 </tool>
+ 
