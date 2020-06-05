@@ -1,5 +1,4 @@
 # TODO:
-# - Add name for every node containing name of benchmark
 # - Check if we need data from outside CSV file?
 
 
@@ -25,18 +24,25 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 # Fetch all benchmarks
 df = pd.read_csv('results.out')
 
-benchmarks = df['benchmark'].drop_duplicates()
-
+benchmarks = []
 results = defaultdict(dict)
 solvers = df['solver'].unique()
 for i, row in df.iterrows():
     bm = os.path.basename(row['benchmark'])
+    benchmarks.append(bm)
     solver = row['solver']
     time = row['time']
     results[bm][solver] = time
 
 x = []
 y = []
+
+def benchmarkstr(bm):
+    fstr = bm + "\n"
+    for s in results[bm]:
+        fstr = fstr + s + ": " + str(results[bm][s]) + "\n"
+    return fstr
+
 
 data = defaultdict(dict)
 for s in solvers:
@@ -55,7 +61,7 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='xaxis-column',
                 options=[{'label': i, 'value': i} for i in available_solvers],
-                value='SolverA'
+                value=available_solvers[0]
             )
         ],
         style={'width': '48%', 'display': 'inline-block'}),
@@ -64,12 +70,18 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='yaxis-column',
                 options=[{'label': i, 'value': i} for i in available_solvers],
-                value='SolverB'
+                value=available_solvers[1]
             )
         ],style={'width': '48%', 'float': 'right', 'display': 'inline-block'})
     ]),
 
     dcc.Graph(id='indicator-graphic'),
+
+
+        html.Div([
+            dcc.Markdown("Benchmark Data (click point)"),
+            html.Pre(id='click-data'),
+        ], className='three columns')
 
 ]
 )
@@ -85,7 +97,7 @@ def update_graph(xaxis_column_name, yaxis_column_name):
         'data': [dict(
             x=xx,
             y=yy,
-            text='Text',
+            text=benchmarks,
             mode='markers',
             marker={
                 'size': 15,
@@ -106,6 +118,19 @@ def update_graph(xaxis_column_name, yaxis_column_name):
             hovermode='closest'
         )
     }
+
+
+
+
+@app.callback(
+    Output('click-data', 'children'),
+    [Input('indicator-graphic', 'clickData')])
+def display_click_data(clickData):
+    if (clickData == None):
+        print("Init")
+    else:
+        return benchmarkstr(clickData['points'][0]['text'])
+        
 
 
 if __name__ == '__main__':
