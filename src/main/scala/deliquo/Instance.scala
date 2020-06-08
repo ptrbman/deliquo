@@ -1,7 +1,8 @@
 package deliquo
 
 object Instance {
-  def apply(tool : String, benchmark : String, data : Map[String, String]) = {
+  def apply(tc : ToolConfig, benchmark : String, data : Map[String, String]) = {
+    val tool = tc.name
     val result = data("result")
     val time = data("time").toLong
     val extra = (for ((k, v) <- data; if k != "result" && k != "time") yield (k, v)).toMap

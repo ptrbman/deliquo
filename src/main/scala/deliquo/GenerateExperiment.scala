@@ -21,7 +21,8 @@ object GenerateExperiment extends JFXApp {
 
   // Storing the selected Configurations
   // Configuration = (ToolName, (Option, Value)*, Extra)
-  var configurations : List[(String, List[(String, String)], String)] = List()
+  // var configurations : List[(String, List[(String, String)], String)] = List()
+  var configurations : List[ToolConfig] = List()
 
   
   // Load tools
@@ -41,9 +42,7 @@ object GenerateExperiment extends JFXApp {
 
   // TextFields
   val nameField = new TextField { text = "experiment_name" }
-  val outputField = new TextField { text = "experiment_output.out" }
   val timeoutField = new TextField { text = "60" }
-  val expOutputField = new TextField { text = "experiment.exp" }
 
 
   // List of files
@@ -84,13 +83,26 @@ object GenerateExperiment extends JFXApp {
     }
   }
 
-  val generateButton = new Button("Generate") {
+  val loadExperimentButton = new Button("Load Experiment") {
+    onMouseClicked = handle {
+      loadExperiment()
+    }
+  }
+
+
+  val generateButton = new Button("Save Experiment") {
     prefWidth = 800
     prefHeight = 100
     onMouseClicked = handle {
       generateExperiment()
     }
-  }  
+  }
+
+  val deleteConfigButton = new Button("Delete Configuration") {
+    onMouseClicked = handle{
+      deleteConfig()
+    }
+  }
 
 
   val toolPane = new TabPane
@@ -100,7 +112,6 @@ object GenerateExperiment extends JFXApp {
         val tab = new Tab
         val tabData = 
           for ((option, values) <- t.options) yield {
-            println(option + "->" + values)
             val tg = new ToggleGroup
             val buttons =
               for ((value, argument) <- values) yield {
@@ -117,13 +128,17 @@ object GenerateExperiment extends JFXApp {
 
         tab.text = text
         tab.setClosable(false)
+
+        val extraField = new TextField { text = "" }
+
         val addButton = new Button("Add Config") {
           onMouseClicked = handle {
-            println(t.name)
-            addConfig(t.name, tabData.map(_._2()), "-v")
+            val tc = ToolConfig(t.name, tabData.map(_._2()).toMap, extraField.text.get)
+            addConfig(tc)
           }
         }
-        val layout = new HBox { children = addButton :: tabData.map(_._1) }
+
+        val layout = new HBox { children = addButton :: extraField :: tabData.map(_._1) }
         tab.content = layout
         tab
       }
@@ -147,12 +162,11 @@ object GenerateExperiment extends JFXApp {
         padding = Insets(10)
         children = new VBox {
           children = Seq(
+            loadExperimentButton,
             (new HBox { children = Seq(hd("Name"), nameField) }),
-            (new HBox { children = Seq(hd("Output"), outputField) } ),
             (new HBox { children = Seq(hd("Timeout"), timeoutField) } ),
             hd("Folder"), fileList, selectFolderButton,
-            hd("ToolConfigs"), toolPane, configList,
-            hd("Experiment File output"), expOutputField,
+            hd("ToolConfigs"), toolPane, configList,deleteConfigButton,
               generateButton
           )
         }
@@ -168,31 +182,61 @@ object GenerateExperiment extends JFXApp {
     these.filter(_.isFile) ++ these.filter(_.isDirectory).flatMap(getRecursiveListOfFiles)
   }
 
+  def addFiles(files : List[String]) = {
+    fileList.items = ObservableBuffer(files)
+  }
+
   def chooseFolder() = {
     val dirChooser = new DirectoryChooser {
       title = "Select Folder"
+      initialDirectory = new File("/home/ptr/experiments/")
     }
+
     val selectedFolder = dirChooser.showDialog(stage)
     if (selectedFolder != null) {
-      fileList.items =
-        ObservableBuffer(getRecursiveListOfFiles(selectedFolder).map(_.getPath).toList)
-      val splitPath = selectedFolder.getPath.split('/')
-      outputField.text = splitPath.take(splitPath.length-1).mkString("/") + "/results.out"
-      expOutputField.text = splitPath.take(splitPath.length-1).mkString("/") + "/experiment.exp"
-    } else {
-      Array()
+      addFiles(getRecursiveListOfFiles(selectedFolder).map(_.getPath).toList)
     }
   }
 
+  def loadExperiment() = {
+    val fileChooser = new FileChooser {
+      title = "Load Experiment"
+      initialDirectory = new File("/home/ptr/experiments/")
+      extensionFilters ++= Seq(new ExtensionFilter("Experiment Files", "*.exp"))
+    }
+    val selectedFile = fileChooser.showOpenDialog(stage)
 
-  def addConfig(config: (String, List[(String, String)], String)) = {
-    configurations =  config :: configurations
-    val listStrings = 
-      for (conf <- configurations) yield {
-        val (toolName, optionValues, extras) = conf
-        toolName + " " + optionValues.map{ case (o,v) => o + ":" + v}.mkString("|") + " " + extras
+    val exp = Experiment(selectedFile.getAbsolutePath())
+    nameField.text.set(exp.name)
+    timeoutField.text.set(exp.timeout.toString)
+    addFiles(exp.inputs)
+    configurations = List()
+    for (config <- exp.toolConfigs) {
+      addConfig(config)
+    }
+  }
+
+  def updateConfigList() = {
+    val listStrings =
+      for ((conf,i) <- configurations.zipWithIndex) yield {
+        val name = conf.toolName
+        val options = conf.optionValues.map{ case (o,v) => o + ":" + v}.mkString("|")
+        val extra = conf.extras
+        i + "###" + name + " " + options + " " + extra
       }
     configList.items = ObservableBuffer(listStrings)
+  }
+
+
+  def addConfig(config : ToolConfig) = {
+    configurations =  config :: configurations
+    updateConfigList()
+  }
+
+  def deleteConfig() = {
+    val configId = configList.getSelectionModel().getSelectedItem().split("###")(0).toInt
+    configurations = configurations.take(configId) ++ configurations.drop(configId + 1)
+    updateConfigList()
   }
 
   def generateExperiment() = {
@@ -201,21 +245,37 @@ object GenerateExperiment extends JFXApp {
         str
       }).toList
 
-    val toolConfigs =
-      (for (cb <- toolBoxes.map(_._2).filter(_.selected.value)) yield {
-        ToolConfig(cb.text.value)
-      }).toList
 
-    val exp = Experiment(
-      nameField.text.get,
-      timeoutField.text.get.toInt,
-      outputField.text.get,
-      inputs, toolConfigs)
-    
+    val toolConfigs = configurations
+
     if (inputs.isEmpty || toolConfigs.isEmpty) {
       sys.error("Nonsensical experiment!")
     } else {
-      exp.writeXML(expOutputField.text.value)
+
+
+      val fileChooser = new FileChooser {
+        title = "Save Experiment"
+        initialDirectory = new File("/home/ptr/experiments/")
+        extensionFilters ++= Seq(new ExtensionFilter("Experiment Files", "*.exp"))
+      }
+
+      val expFile = fileChooser.showSaveDialog(stage)
+
+
+    val splitPath = expFile.getAbsolutePath().split('/')
+    val outFile = splitPath.take(splitPath.length-1).mkString("/") + "/" + nameField.text.get + ".out"
+
+
+
+      val exp = Experiment(
+        nameField.text.get,
+        timeoutField.text.get.toInt,
+        outFile,
+        inputs, toolConfigs)
+
+      if (exp != null) {
+        exp.writeXML(expFile.getAbsolutePath())
+      }
     }
   }
 }

@@ -78,6 +78,11 @@ object Tool {
           terminated = true
         }
 
+        if (retVal == 137) {
+          result = "Memout"
+          terminated = true
+        }
+
 
         if (!terminated && result == "") {
           println("<<STDOUT>>")
@@ -138,19 +143,29 @@ abstract class Tool(val name : String, command : String, arguments : List[String
     (exitValue, stdoutStream.toString.split("\n"), stderrStream.toString.split("\n"))
   }
 
-  def execute(input : String, timeout : Int, extraOptions : List[String] = List(), output : String = "") : Instance = {
-    D.dboxprintln(name + " " + extraOptions.mkString("&") + "(" + output + ")", "YELLOW")
+  def execute(input : String, timeout : Int, tc : ToolConfig) : Instance = {
+  // def execute(input : String, timeout : Int, optionValues : Map[String, String] = Map(), extras : String = "") : Instance = {
+    val optionValues = tc.optionValues
+    D.dboxprintln(name + " " + optionValues.mkString("&"), "YELLOW")
     val inputFile = new File(input)
+    val extras = tc.extras
+    val extraOptions =
+      for ((opt, optList)<- options) yield {
+        val v = optionValues(opt)
+        val vv = optList.toMap
+        val vvv = vv(v)
+        vvv
+      }
 
+    val fullCommand = command :: (arguments ++ extraOptions ++ List(extras, inputFile.getPath)).filter(_ != "")
+    println(fullCommand.mkString(" "))
     val START_TIME = System.currentTimeMillis
-    val (exitVal, stdout, stderr) =
-      executeCommand(command :: (arguments ++ extraOptions ++ List(inputFile.getPath)), timeout)
+    val (exitVal, stdout, stderr) = executeCommand(fullCommand, timeout)
     val END_TIME = System.currentTimeMillis
-
     val time = END_TIME - START_TIME
     val result = parseOutput(exitVal, stdout, stderr)
 
     println(result)
-    Instance(name, input, (Map(("time",time.toString)) ++ result))
+    Instance(tc, input, (Map(("time",time.toString)) ++ result))
   }
 }

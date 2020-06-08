@@ -43,16 +43,16 @@ object Deliquo {
           for (t <- usedTools)
             println("\t" + t)
 
+          println("Single execution not supported (req default ToolConfig)")
+          // for (t <- usedTools) {
+          //   val instances = 
+          //   for (f <- config.inputFiles) yield {
+          //     t.execute(f, config.timeout)
+          //   }
+          //   println(instances.mkString("\n"))
 
-          for (t <- usedTools) {
-            val instances = 
-            for (f <- config.inputFiles) yield {
-              t.execute(f, config.timeout)
-            }
-            println(instances.mkString("\n"))
-
-            CSV.writeInstances(instances.toList, "test.csv")
-          }
+          //   CSV.writeInstances(instances.toList, "test.csv")
+          // }
         }
       case _ => println("Unrecognized command")
     }
