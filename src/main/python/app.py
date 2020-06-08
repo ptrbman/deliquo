@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output, State
 import pandas as pd
 import base64
 from dash.exceptions import PreventUpdate
-
+import dash_table
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -27,6 +27,7 @@ benchmarks = ""
 data = ""
 solverx = ""
 solvery = ""
+table = []
 
 def parsecsv(df):
     global solvers
@@ -35,9 +36,11 @@ def parsecsv(df):
     global data
     global solverx
     global solvery
+    global table
     benchmarks = []
     results = defaultdict(dict)
     solvers = df['solver'].unique()
+    table = []
 
     for i, row in df.iterrows():
         bm = os.path.basename(row['benchmark'])
@@ -50,11 +53,18 @@ def parsecsv(df):
     data = defaultdict(dict)
     for s in solvers:
         data[s] = []
+    i = 0
+    table = [dict() for x in range(len(results))]
     for k in results:
+        table[i]['benchmark'] = k
         for s in solvers:
+            table[i][s] = results[k][s]
             data[s].append(results[k][s])
+        i += 1
+    table = pd.DataFrame(table)
 
 parsecsv(pd.read_csv('results.out'))
+
 
 def benchmarkstr(bm):
     fstr = bm + "\n"
@@ -107,9 +117,38 @@ app.layout = html.Div([
     html.Div([
         dcc.Markdown("Benchmark Data (click point)"),
         html.Pre(id='click-data'),
-    ])
+    ]),
+
+    html.Div(id='benchmark-graph', children = [dash_table.DataTable(id='datatable')]),
+    html.Div(id='bmlist')
 ])
 
+
+@app.callback(Output('bmlist', 'children'),
+              [Input('datatable', 'selected_rows')],
+              [State('datatable', 'data')])
+def buttonclick(selected_rows, data):
+    if selected_rows != None:
+        resultingStuff = []
+        for r in selected_rows:
+            resultingStuff.append(data[r]['benchmark'])
+            resultingStuff.append(html.Br())
+        return resultingStuff
+    return "No selected"
+
+def update_table():
+    return [
+        dash_table.DataTable(
+            id='datatable',
+            columns = [{"name" : i, "id" : i,} for i in table.columns],
+            data=table.to_dict('records'),
+            filter_action="native",
+            sort_action="native",
+            sort_mode="multi",
+            row_selectable="multi",
+            page_action="native",
+            page_size= 200,
+        )]
 
 def update_graph():
     return {
@@ -141,7 +180,8 @@ def update_graph():
 
 
 @app.callback(
-    Output('indicator-graphic', 'figure'),
+    [Output('indicator-graphic', 'figure'),
+    Output('benchmark-graph', 'children')],
     [Input('xaxis-column', 'value'),
      Input('yaxis-column', 'value'),
      Input('upload-data', 'contents')],
@@ -166,7 +206,7 @@ def change_solvers(xaxis_column_name, yaxis_column_name, contents, filename):
                 'There was an error processing this file.'
             ])
 
-    return update_graph()
+    return update_graph(),update_table()
 
 @app.callback(
     Output('click-data', 'children'),
@@ -174,6 +214,7 @@ def change_solvers(xaxis_column_name, yaxis_column_name, contents, filename):
 def display_click_data(clickData):
     if (clickData != None):
         return benchmarkstr(clickData['points'][0]['text'])
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
