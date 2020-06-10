@@ -23,6 +23,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 currentfile = ""
 solvers = "" # For now to make it global
 results = ""
+solved = ""
 benchmarks = ""
 data = ""
 solverx = ""
@@ -37,8 +38,10 @@ def parsecsv(df):
     global solverx
     global solvery
     global table
+    global solved
     benchmarks = []
     results = defaultdict(dict)
+    solved = defaultdict(dict)
     solvers = df['solver'].unique()
     table = []
 
@@ -46,9 +49,18 @@ def parsecsv(df):
         bm = os.path.basename(row['benchmark'])
         benchmarks.append(bm)
         solver = row['solver']
-
+        tmp = row['result']
+        if tmp == "Timeout" or tmp == "Error" or tmp == "Memout":
+            isSolved = False
+        elif tmp == "SAT" or tmp == "UNSAT":
+            isSolved = True
+        else:
+            print("UNHANDLED RESULT")
+            print("\t", tmp)
+        
         time = row['time']
         results[bm][solver] = time
+        solved[bm][solver] = isSolved
 
     data = defaultdict(dict)
     for s in solvers:
@@ -93,8 +105,9 @@ app.layout = html.Div([
         # Allow multiple files to be uploaded
         multiple=False
     )]),
+    html.Div(id='summary'),
     html.Div([
-        html.Div([
+        html.Div(id='dd-x', children = [
             dcc.Dropdown(
                 id='xaxis-column',
                 options=[{'label': i, 'value': i} for i in solvers],
@@ -103,7 +116,7 @@ app.layout = html.Div([
         ],
         style={'width': '48%', 'display': 'inline-block'}),
 
-        html.Div([
+        html.Div(id='dd-y', children =[
             dcc.Dropdown(
                 id='yaxis-column',
                 options=[{'label': i, 'value': i} for i in solvers],
@@ -177,11 +190,57 @@ def update_graph():
         )
     }
 
+def update_dropdown(idd, valuee):
+    return [dcc.Dropdown(
+        id=idd,
+        options=[{'label': i, 'value': i} for i in solvers],
+        value=valuee
+    )]
 
+def update_summary():
+    # Lets calculate per solver: how many solved, avg time of solved how many best, how many unique
+    summary = dict()
+    columns = ["solved", "solvedtime", "best", "unique"]
+    for s in solvers:
+        tmp = dict()
+        tmp['solved'] = 0
+        tmp['solvedtime'] = 0
+        tmp['best'] = 0
+        tmp['unique'] = 0
+        summary[s] = tmp
+
+    for r in results:
+        bestTime = -1 
+        best = ""
+        unique = ""
+        for s in results[r]:
+            if solved[r][s]:
+                if unique == "":
+                    unique = s
+                else:
+                    unique = "none"
+                summary[s]['solved'] += 1
+                summary[s]['solvedtime'] += results[r][s]
+                if best == "" or results[r][s] < bestTime:
+                    best = s
+                    bestTime = results[r][s]
+        if best != "":
+            summary[best]['best'] += 1
+        if unique != "none" and unique != "":
+            summary[unique]['unique'] += 1
+
+    return [html.Table(
+        # Header
+        [html.Tr(["Solver"] + [html.Th(col) for col in columns]) ] +
+        # Body
+        [html.Tr([s] + [html.Td(summary[s][col]) for col in columns]) for s in solvers])]
 
 @app.callback(
     [Output('indicator-graphic', 'figure'),
-    Output('benchmark-graph', 'children')],
+     Output('benchmark-graph', 'children'),
+     Output('dd-x', 'children'),
+     Output('dd-y', 'children'),
+     Output('summary', 'children')],
     [Input('xaxis-column', 'value'),
      Input('yaxis-column', 'value'),
      Input('upload-data', 'contents')],
@@ -189,24 +248,35 @@ def update_graph():
 def change_solvers(xaxis_column_name, yaxis_column_name, contents, filename):
     global solverx
     global solvery
-    print("change_solvers(", xaxis_column_name, ", ", yaxis_column_name, ", data, ", filename, ")")
-    solverx = xaxis_column_name
-    solvery = yaxis_column_name
+    ctx = dash.callback_context
+    newX = xaxis_column_name
+    newY = yaxis_column_name
+    for trig in ctx.triggered:
+        propid = trig['prop_id']
+        if (propid == "."):
+            print("Initialisation!")
+        elif (propid == "xaxis-column.value"):
+            solverx = xaxis_column_name
+        elif (propid == "yaxis-column.value"):
+            solvery = yaxis_column_name
+        elif (propid == "upload-data.contents"):
+            try:
+                content_type, content_string = contents.split(',')
+                # Assume that the user uploaded a CSV file
+                decoded = base64.b64decode(content_string)
+                df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+                parsecsv(df)
+                newX = solvers[0]
+                newY = solvers[0]
+            except Exception as e:
+                print(e)
+                return html.Div(['There was an error processing this file.'])
+        else:
+            print("Unknown prop_id: ", propid)
 
-    if (filename != None):
-        try:
-            content_type, content_string = contents.split(',')
-            # Assume that the user uploaded a CSV file
-            decoded = base64.b64decode(content_string)
-            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-            parsecsv(df)
-        except Exception as e:
-            print(e)
-            return html.Div([
-                'There was an error processing this file.'
-            ])
-
-    return update_graph(),update_table()
+        print("change_solvers(", xaxis_column_name, ", ", yaxis_column_name, ", data, ", filename, ")")
+        update_summary()
+        return update_graph(),update_table(),update_dropdown('xaxis-column', newX),update_dropdown('yaxis-column', newY), update_summary()
 
 @app.callback(
     Output('click-data', 'children'),
